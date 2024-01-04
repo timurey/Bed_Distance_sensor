@@ -103,28 +103,6 @@ struct step_adjust{
 #define NUM_Z_MOTOR  6
 struct step_adjust step_adj[NUM_Z_MOTOR];//x,y,z
 
-struct _step_probe{
-    int min_x;
-    int max_x;
-    int points;
-    int steps_at_zero;
-    int steps_per_mm;
-    int xoid;//oid for x stepper
-    int x_count;
-	int x_dir;
-	int y_dir;
-    int kinematics;//0:cartesian,1:corexy,2:delta
-    ////for y
-    int min_y;
-    int max_y;
-    int y_steps_at_zero;
-    int y_steps_per_mm;
-    int y_oid;//oid for y stepper
-    ////
-    int x_data[64];
-};
-
-struct _step_probe stepx_probe;
 
 
 
@@ -172,35 +150,35 @@ uint16_t Get_Distane_data(void)
 
 }
 
-int BD_i2c_init(uint32_t _sda,uint32_t _scl,uint32_t delays,uint32_t h_pose,int z_adjust)
+int BD_i2c_init(uint32_t _sda, uint32_t _scl, uint32_t delays, uint32_t h_pose, int z_adjust)
 {
-    int i=0;
-    sda_pin=_sda;
-    scl_pin =_scl;
-	homing_pose = h_pose;
-	z_ofset = z_adjust;
-	if (z_ofset > 500)
-		z_ofset = 0;
-    if(delays>0)
-        delay_m=delays;
-    sda_gpio=gpio_out_setup(sda_pin, 1);
-    scl_gpio=gpio_out_setup(scl_pin, 1);
+  int i = 0;
+  sda_pin = _sda;
+  scl_pin = _scl;
+  homing_pose = h_pose;
+  z_ofset = z_adjust;
+  if (z_ofset > 500)
+    z_ofset = 0;
+  if (delays > 0)
+    delay_m = delays;
+  sda_gpio = gpio_out_setup(sda_pin, 1);
+  scl_gpio = gpio_out_setup(scl_pin, 1);
 
-    gpio_out_write(sda_gpio, 1);
-    gpio_out_write(scl_gpio, 1);
-	for (i=0;i<NUM_Z_MOTOR;i++){
-        step_adj[i].cur_z=0;
-    	step_adj[i].zoid=0;
-		step_adj[i].adj_z_range=0;
-	}
-    stepx_probe.xoid=0;
-    stepx_probe.y_oid=0;
-	endtime_adjust=0;
-	//output("BD_i2c_init mcuoid=%c sda:%c scl:%c dy:%c h_p:%c", oid_g,sda_pin,scl_pin,delay_m,homing_pose);
-	BD_i2c_write(1022); //reset BDsensor
+  gpio_out_write(sda_gpio, 1);
+  gpio_out_write(scl_gpio, 1);
+  for (i = 0; i < NUM_Z_MOTOR; i++)
+  {
+    step_adj[i].cur_z = 0;
+    step_adj[i].zoid = 0;
+    step_adj[i].adj_z_range = 0;
+  }
 
-	timer_bd_init();
-    return 1;
+  endtime_adjust = 0;
+  // output("BD_i2c_init mcuoid=%c sda:%c scl:%c dy:%c h_p:%c", oid_g,sda_pin,scl_pin,delay_m,homing_pose);
+  BD_i2c_write(1022); // reset BDsensor
+
+  timer_bd_init();
+  return 1;
 }
 
 uint32_t nsecs_to_ticks_bd(uint32_t ns)
@@ -381,44 +359,6 @@ void BD_i2c_write(unsigned int addr)
         ndelay_bd(delay_m);
     }
     BD_i2c_stop();
-}
-
-uint32_t INT_to_String(uint32_t BD_z1,uint8_t*data)
-{
-    uint32_t BD_z=BD_z1;
-    uint32_t len=0,j=0;
-    if(BD_z>=1000)
-    {
-        j=BD_z/1000;
-        data[len++] = '0'+j;
-        BD_z-=1000*j;
-        data[len]='0';
-        data[len+1]='0';
-        data[len+2]='0';
-    }
-    if(BD_z>=100)
-    {
-        j=BD_z/100;
-        data[len++] = '0'+j;
-        BD_z-=100*j;
-        data[len]='0';
-        data[len+1]='0';
-    }
-    else if(data[len])
-        len++;
-    if(BD_z>=10)
-    {
-        j=BD_z/10;
-        data[len++] = '0'+j;
-        BD_z-=10*j;
-        data[len]='0';
-    }
-    else if(data[len])
-        len++;
-    j=BD_z;
-    data[len++] = '0'+j;
-    data[len]=0;
-    return len;
 }
 
 
@@ -660,54 +600,16 @@ command_Z_Move_Live(uint32_t *args)
 DECL_COMMAND(command_Z_Move_Live, "Z_Move_Live oid=%c data=%*s");
 
 //for gcode command
-void
-command_I2C_BD_receive(uint32_t *args)
+void command_I2C_BD_receive(uint32_t *args)
 {
-    uint8_t oid = args[0];
-    uint8_t data[8];
-    uint16_t BD_z;
+  uint8_t oid = args[0];
+  char data[8];
 
-    //if(BD_read_flag==1018)
-    //    BD_z=BD_Data;
-    //else
-    BD_z=BD_i2c_read();//BD_Data;
-    BD_Data=BD_z;
-    memset(data,0,8);
-    uint32_t len=0,j=0;
+  BD_Data = BD_i2c_read(); 
 
-///////////same as function itoa()
-    if(BD_z>=1000)
-    {
-        j=BD_z/1000;
-        data[len++] = '0'+j;
-        BD_z-=1000*j;
-        data[len]='0';
-        data[len+1]='0';
-        data[len+2]='0';
-    }
-    if(BD_z>=100)
-    {
-        j=BD_z/100;
-        data[len++] = '0'+j;
-        BD_z-=100*j;
-        data[len]='0';
-        data[len+1]='0';
-    }
-    else if(data[len])
-        len++;
-    if(BD_z>=10)
-    {
-        j=BD_z/10;
-        data[len++] = '0'+j;
-        BD_z-=10*j;
-        data[len]='0';
-    }
-    else if(data[len])
-        len++;
-    j=BD_z;
-    data[len++] = '0'+j;
+  itoa(BD_Data, &data[0], 10);
 
-    sendf("I2C_BD_receive_response oid=%c response=%*s", oid,len,data);
+  sendf("I2C_BD_receive_response oid=%c response=%*s", oid, strlen(data), data);
 }
 
 DECL_COMMAND(command_I2C_BD_receive, "I2C_BD_receive oid=%c data=%*s");
